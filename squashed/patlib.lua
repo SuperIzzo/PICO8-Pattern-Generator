@@ -1,0 +1,8 @@
+function clamp(x,l,r)return max(min(x,r),l)end
+function mmin(a,b,c,...)return min(a,c and mmin(b,c,...)or b)end
+function mr(a,s)return min(a,s-1-a)end
+function hash(...)local r=0 for v in all{...}do r+=v r+=shl(r,10) r=bxor(r,shr(r,6))end r+=shl(r,3) r=bxor(r,shr(r,11))r+=shl(r,15) return r end
+_fptrs={function(x,y)return y end,function(x)return x end,function(x,y)return x+y end,function(x,y)return y-x+1 end,function(x,y,w,h,n)return clamp(mmin(x,y,w-x-1,h-y-1),0,n-1)end,function(x,y,w,h,n)return clamp(mmin(x*2,y*2,(w-x-1)*2+1,(h-y-1)*2+1),0,n-1)end,function(x,y)return x*y end,function(x,y)return x^y end,function(x,y)return y^x end,function(x,y)return sin(x/6)*100 end}
+_ptrs={function(a,x,y,w,h,n)return _fptrs[a] and _fptrs[a](x,y,w,h,n)or 0 end,function(a,x,y)return flr(hash(x,y,a))end,function(a,x,y,w)return flr(hash(mr(x,w),y,a))end,function(a,x,y,w,h)return flr(hash(x,mr(y,h),a))end,function(a,x,y,w,h)return flr(hash(mr(x,w),mr(y,h),a))end,function(a,x,y)return flr(hash(max(x,y),min(x,y),a))end,function(a,x,y,w,h)local mn,mx=min(x,h-y-1),max(x,h-y-1)return flr(hash(mn,mx,a))end,function(a,x,y)return flr(hash(0,y,a))end,function(a,x)return flr(hash(x,0,a))end}
+function pat(p,a,x,y,w,h,c)for v=0,h-1 do for u=0,w-1 do pset(x+u,y+v,c[_ptrs[p](a,u,v,w,h,#c)%#c+1])end end end
+function spat(p,a,x,y,w,h,c)for v=0,h-1 do for u=0,w-1 do sset(x+u,y+v,c[_ptrs[p](u,v,#c,w,h,a)+1])end end end
