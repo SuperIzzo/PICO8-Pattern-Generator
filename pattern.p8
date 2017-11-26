@@ -7,9 +7,8 @@ function clamp(x,l,r)
  return max(min(x,r),l);
 end
 
-function mmin(a,b,c,...)
-	if (not c) return min(a,b)
-	return min(a,mmin(b,c,...));
+function mmin(a,b,c,...)	
+	return min(a,c and mmin(b,c,...) or b);
 end
 
 function mr(a,s)
