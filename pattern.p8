@@ -1,85 +1,193 @@
 pico-8 cartridge // http://www.pico-8.com
-version 7
+version 8
 __lua__
+--=-=-=-=-=-=-=--=-=-=-=-=-=-=--
+--           about            --
+-- - - - - - - -- - - - - - - --
+--  patlib is a small library --
+--  that genrates procedural  --
+--  images to use for sprites --
+--  and tiles.                --
+--                            --
+--  it comes in two flavors   --
+--  bloated and squashed.     --
+--  this is the bloated one   --
+--  with comments and more or --
+--  less readable code. it 	  --
+--  also contains a pattern   --
+--  explorer program.         --
+--                            --
+--  the squshed version is    --
+--  stripped of all comments, --
+--  has removed characters    --
+--  and does not contain the  --
+--  pattern explorer.         --
+--                            --
+-- - - - - - - -- - - - - - - --
+--           usage            --
+-- - - - - - - -- - - - - - - --
+--  pat  n s x y h w c [plt]  --
+--                            --
+--  where n is the pattern id --
+--  s is the seed or sub-type --
+--  x and y are positions on  --
+--  screen (or sprite buffer) --
+--  w and h are the pattern   --
+--  tile dimentions           --
+--  c is the collors table,   --
+--  plt is a plotting func    -- 
+--  (default is pset)         --
+--                            --
+--  pattern ids (n):          --
+--   0 - regular              --
+--   1 - regular h-mirrored   --
+--   2 - regular v-mirrored   --
+--   3 - regular hv-mirrored  --
+--   5 - regular d1-mirrored  --
+--   6 - regular d2-mirrored  --
+--   7 - random               --
+--   8 - random h-mirrored    --
+--   9 - random v-mirrored    --
+--  10 - random hv-mirrored   --
+--  11 - random d1-mirrored   --
+--  12 - random d2-mirrored   --
+--                            --
+--  pattern type (s):         --
+--   0 - plain color          --
+--   1 - horiz. stripes       --
+--   2 - vert. stripes        --
+--   3 - diag. 1 stripes      --
+--   4 - diag. 2 stripes      --
+--   5 - <x*y>                --
+--   5 - <x^y>                --
+--   5 - <y^x>                --
+--=-=-=-=-=-=-=--=-=-=-=-=-=-=--
 
--- math utils
-function clamp(x,l,r)
- return max(min(x,r),l);
+--=-=-=-=-=-=-=--=-=-=-=-=-=-=--
+--         math utils         --
+--=-=-=-=-=-=-=--=-=-=-=-=-=-=--
+
+--------------------------------
+--  clamps a value between    --
+--  a minimum and a maximum   --
+--------------------------------
+function clamp(x, l, r)
+	return max( min(x,r), l )
 end
 
-function mmin(a,b,c,...)	
-	return min(a,c and mmin(b,c,...) or b);
+--------------------------------
+--  returns the minimum of    --
+--  multiple values           --
+--------------------------------
+function mmin(a, b, c, ...)
+	return min( a, c and mmin(b,c,...) or b )
 end
 
+--------------------------------
+--  returns a or its mirror   --
+--  value in the range 0:s-1  --
+--  i.e. ping-pongs a at s/2  --
+--------------------------------
 function mr(a,s)
-	return min(a,s-1-a);
+	return min(a,s-1-a)
 end
 
+--------------------------------
+--  fast and simple xorshift  --
+--  hash function (see wiki)  --
+--------------------------------
 function hash(...)
- local r = 0; 
- for v in all{...} do
- 	r += v;
- 	r += shl(r,10)
-	 r = bxor(r,shr(r,6))
- end
- 
+	local r = 0
+	for v in all{...} do		
+		r += v
+		r += shl(r,10)
+		r = bxor(r,shr(r,6))
+	end
+
 	r += shl(r,3)
- r = bxor(r,shr(r,11))
+	r = bxor(r,shr(r,11))
 	r += shl(r,15)
- 
- return r
+
+	return flr(r)
 end
 
+--------------------------------
+--  regular pattern functions --
+--------------------------------
 _fptrs =
 {
--- neat
-function(x,y)return y end, 
-function(x)return x end,
-function(x,y)return x+y end,
-function(x,y)return y-x+1 end,
-function(x,y,w,h,n)return clamp(mmin(x,y,w-x-1,h-y-1),0,n-1)end,
-function(x,y,w,h,n)return clamp(mmin(x*2,y*2,(w-x-1)*2+1,(h-y-1)*2+1),0,n-1)end,
-function(x,y)return x*y end,
-function(x,y)return x^y end,
-function(x,y)return y^x end,
-function(x,y)return sin(x/6)*100 end,
+	function(x,y) return y end,
+	function(x)   return x end,	
+	function(x,y) return x+y end,
+	function(x,y) return y-x+1 end,
+	function(x,y) return x*y end,
+	function(x,y) return x^y end,
+	function(x,y) return y^x end,
+	function(x,y) return min(x,y) end,
+	function(x,y) return max(x,y) end,
+	function(x,y) return max(x%y,y) end,
+	function(x,y) return max(x,y%x) end,
+	function(x,y,w,h,n)
+		return clamp(mmin(x,y,w-x-1,h-y-1),0,n-1)
+	end,
+	function(x,y,w,h,n)
+		return clamp(mmin(x*2,y*2,(w-x-1)*2+1,(h-y-1)*2+1),0,n-1)
+	end,
 }
 
--- patterns
-_ptrs =
+--------------------------------
+--  pattern generators table  --
+--------------------------------
+_pat =
 {
-function(a,x,y,w,h,n)return _fptrs[a] and _fptrs[a](x,y,w,h,n)or 0 end,
-
--- noise
-function(a,x,y)return flr(hash(x,y,a))end,
-function(a,x,y,w)return flr(hash(mr(x,w),y,a))end,
-function(a,x,y,w,h)return flr(hash(x,mr(y,h),a))end,
-function(a,x,y,w,h)return flr(hash(mr(x,w),mr(y,h),a))end,
-function(a,x,y)return flr(hash(max(x,y),min(x,y),a))end,
-function(a,x,y,w,h) 
-	local mn,mx=min(x,h-y-1),max(x,h-y-1)
- return flr(hash(mn,mx,a))
-end,
-function(a,x,y)return flr(hash(0,y,a)) end,
-function(a,x)return flr(hash(x,0,a)) end,
+	--  regular pattern       --	
+	[0] = function (a,x,y,w,h,n) 
+		return _fptrs[a] and _fptrs[a](x,y,w,h,n)or 0 
+	end,
+	
+	--  random hash pattern   --
+	hash,
 }
 
+--------------------------------
+--  transforms table          --
+--------------------------------
+_trn =
+{
+	-- normal                 --
+	[0] = function(x,y)return x,y end,
+	
+	-- horizontal symetry     --
+	function(x,y,w)return mr(x,w),y end,	
+	
+	-- vertical symetry       --
+	function(x,y,w,h)return x,mr(y,h) end,
+	
+	-- four-way symetry       --
+	function(x,y,w,h)return mr(x,w),mr(y,h) end,
+	
+	-- diagonal symetry 1     --
+	function(x,y,w,h)return min(x,y),max(x,y) end,
+	
+	-- diagonal symetry 2     --
+	function(x,y,w,h)return min(x,h-y-1),max(x,h-y-1) end,
+}
 
-function pat(p,a,x,y,w,h,c)
- for yy = 0, h-1 do 	
-		for xx = 0, w-1  do
-		 pset( x+xx,y+yy,
-		 c[_ptrs[p](a,xx,yy,w,h,#c)%#c+1] );
-		end
-	end
-end
-
-
-function spat(p,a,x,y,w,h,c)
- for yy = 0, h-1 do 	
-		for xx = 0, w-1  do
-		 sset( x+xx,y+yy,
-		 c[_ptrs[p](xx,yy,#c,w,h,a)+1] );
+--------------------------------
+--  patter function  		  --
+--  takes a plotting function --
+--  pass sset to draw to	  --
+--  sprite memory
+--------------------------------
+function pat(p,a,x,y,w,h,c, plot)
+	local plot = plot or pset
+	local n = #_trn+1
+	local trn = _trn[p%n]
+	local ptr = _pat[flr(p/n)]
+	for v = 0, h-1 do 	
+		for u = 0, w-1  do
+			local i,j = trn(u,v,w,h)
+			plot( x+u, y+v, c[ptr(a,i,j,w,h,#c)%#c+1] );
 		end
 	end
 end
@@ -106,7 +214,7 @@ function init_patexpl()
 	cols = { 1,2,3,4 }
 	
 	n = 8
- pt = 1;
+	pt = 0;
 end
 
 function upd_patexpl()
@@ -148,8 +256,8 @@ function upd_patexpl()
 	
 	if btnp(4) then
 		pt += 1;
-		if pt > 9 then
-			pt = 1;
+		if pt >= 20 then
+			pt = 0;
 		end
 		refresh = true;
 	end
@@ -178,26 +286,26 @@ function drw_patexpl()
  
  
  for xx = 0, 7 do
-	 for yy = 0,7 do 
-	 	
-	 	 local x = xx*(n+3);
-	 	 local y = yy*(n+3);
-	 	 
-	 	 if cur.x == xx and cur.y == yy then
-	 	 	color(10);
-	 	 else
-		 	 color(7);
-		 	end
+	 for yy = 0,7 do 	 	
+			local x = xx*(n+3);
+			local y = yy*(n+3);
+			local tileid = (xx+gx)+(yy+gy)*8;
+
+			if cur.x == xx and cur.y == yy then
+				color(10);
+			else
+				color(7);
+			end
 		 	
-	   rect(x, y, x+n+1, y+n+1 )
-	   	  
-				pat( pt,(xx+gx)+(yy+gy)*8,
-	 						 x+1, y+1,
-	 						 8,8, cols);
+			rect(x, y, x+n+1, y+n+1 )
+			
+			pat( pt,tileid,
+				x+1, y+1,
+				8,8, cols);
    end
   end
  
- 	local tileid = (cur.x+gx)+(cur.y+gy)*8;
+ 	local tileid = (cur.x+gx)+(cur.y+gy)*8;	
 		for x = 0, 4 do
 	 	for y = 0, 4 do
 	 		pat( pt, tileid,
@@ -354,6 +462,7 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
